@@ -11,7 +11,7 @@ Synthetic traffic matrix generator based on two publications from SIGCOMM CCR:
 Run the following two commands:
 ```
 docker build -t tm-generator .
-docker run -it tm-generator example_template.yml output_file.yml 0 1
+docker run -it tm-generator example_template.yml - 0 1 > output_file.yml
 ```
 
 ### Without Docker
