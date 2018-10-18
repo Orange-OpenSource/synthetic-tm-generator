@@ -16,6 +16,7 @@ limitations under the License.
 """
 from __future__ import print_function
 import yaml
+import json
 import numpy as np
 import sys
 import random
@@ -570,6 +571,69 @@ def round_link_loads(data):
         link['legit_load'] = round(link['legit_load'])
 
 
+"""Format all output information into text format
+
+Args:
+  data: The dictionary containing the topology and the node capacities.
+Returns:
+  The text to display or write to file.
+"""
+def format_text(data):
+    nb_nodes = len(data['nodes'])
+    adjacency_matrix = [[0 for x in range(nb_nodes)] for y in range(nb_nodes)]
+    legit_load_matrix = [[0 for x in range(nb_nodes)] for y in range(nb_nodes)]
+    for link in data['links']:
+        adjacency_matrix[link['source'] - 1][link['destination'] - 1] = link['capacity']
+        legit_load_matrix[link['source'] - 1][link['destination'] - 1] = link['legit_load']
+    adjacency_matrix_text = "["
+    legit_load_matrix_text = "["
+    for i in range(nb_nodes - 1):
+        adjacency_matrix_text += "%s\n " % json.dumps(adjacency_matrix[i])
+        legit_load_matrix_text += "%s\n " % json.dumps(legit_load_matrix[i])
+    adjacency_matrix_text += "%s]" % json.dumps(adjacency_matrix[nb_nodes - 1])
+    legit_load_matrix_text += "%s]" % json.dumps(legit_load_matrix[nb_nodes - 1])
+    text = "%s\n\n%s" % (adjacency_matrix_text, legit_load_matrix_text)
+
+    resource_matrix = [[0 for x in range(nb_nodes)] for y in range(2)]
+    for node in data['nodes']:
+        resource_matrix[0][node['id'] - 1] = node['cpus']
+        resource_matrix[1][node['id'] - 1] = node['memory']
+    resource_matrix_text = "[%s,\n" % json.dumps(resource_matrix[0])
+    resource_matrix_text += " %s]" % json.dumps(resource_matrix[1])
+    text = "%s\n\n%s" % (text, resource_matrix_text)
+
+    nb_attacks = len(data['attacks'])
+    attack_source_vector = [0 for x in range(nb_attacks)]
+    attack_dest_vector = [0 for x in range(nb_attacks)]
+    attack_load_vector = [0 for x in range(nb_attacks)]
+    i = 0
+    for attack in data['attacks']:
+        attack_source_vector[i] = attack['source']
+        attack_dest_vector[i] = attack['destination']
+        attack_load_vector[i] = attack['load']
+        i += 1
+    text = "%s\n\n%s\n%s\n%s" % (text, json.dumps(attack_source_vector), json.dumps(attack_dest_vector), json.dumps(attack_load_vector))
+
+    nb_vnfs = len(data['vnfs'])
+    vnf_capacity_vector = [0 for x in range(nb_vnfs)]
+    vnf_cost_vector = [0 for x in range(nb_vnfs)]
+    vnf_resource_matrix = [[0 for x in range(nb_vnfs)] for y in range(2)]
+    i = 0
+    for vnf in data['vnfs']:
+        vnf_capacity_vector[i] = vnf['capacity']
+        vnf_cost_vector[i] = vnf['cost']
+        vnf_resource_matrix[0][i] = vnf['cpus']
+        vnf_resource_matrix[1][i] = vnf['memory']
+        i += 1
+    vnf_resource_matrix_text = "[%s,\n" % json.dumps(resource_matrix[0])
+    vnf_resource_matrix_text += " %s]" % json.dumps(resource_matrix[1])
+    vnf_capacity_vector_text = json.dumps(vnf_capacity_vector)
+    vnf_cost_vector_text = json.dumps(vnf_cost_vector)
+    text = "%s\n\n%s\n\n%s\n\n%s" % (text, vnf_resource_matrix_text, vnf_capacity_vector_text, vnf_cost_vector_text)
+
+    return text
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Generate a set of inputs for the VNF placement problem.')
     parser.add_argument('template_file',
@@ -594,6 +658,7 @@ if __name__ == "__main__":
                         help='mipgap parameter for GLPK. Defaults to %(default)s.')
     parser.add_argument('--mean-link-load', type=float, default=0.5, help='Mean link load. Defaults to %(default)s.')
     parser.add_argument('--display-network', action='store_true', help='Display the network graph with legitimate link loads in a new window.')
+    parser.add_argument('--yaml', action='store_true', default=False, help='Output a YAML document.')
     args = parser.parse_args()
 
     with open(args.template_file, 'r') as fh:
@@ -616,11 +681,19 @@ if __name__ == "__main__":
     generate_attacks(data, nodes, args.nb_attackers, args.nb_targets, args.mean_attack_load)
     round_link_loads(data)
 
-    if args.output_file == '-':
-        print(yaml.dump(data, default_flow_style=False))
+    if args.yaml:
+        if args.output_file == '-':
+            print(yaml.dump(data, default_flow_style=False))
+        else:
+            with open(args.output_file, 'w') as fh:
+                yaml.dump(data, fh, default_flow_style=False)
     else:
-        with open(args.output_file, 'w') as fh:
-            yaml.dump(data, fh, default_flow_style=False)
+        text = format_text(data)
+        if args.output_file == '-':
+            print(text)
+        else:
+            with open(args.output_file, 'w') as fh:
+                fh.write(text)
 
     if args.display_network:
         display_graph(data)
