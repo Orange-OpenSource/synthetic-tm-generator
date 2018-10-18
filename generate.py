@@ -130,8 +130,6 @@ def assign_flow_rates_ilp(data, tm, mipgap):
 
     solver = SolverFactory('glpk')
     solver.set_options("mipgap=%f" % mipgap)
-    # results = solver.solve(model)
-    # print(results)
     results = solver.solve(model)
     print(results)
     if str(results['Solver'][0]['Termination condition']) == 'infeasible':
@@ -219,7 +217,7 @@ def assign_flow_rates_ilp_glpk(data, tm, mipgap):
                 elif "Objective:  max_load" in line:
                     objective = float(line.split()[3])
     if nb_links != len(link_rates):
-        print("The number of link_rates variables retrieved from the glpsol output doesn't match the number of links. %d %d", (nb_links, len(link_rates)))
+        print("Error: The number of link_rates variables retrieved from the glpsol output doesn't match the number of links. %d %d", (nb_links, len(link_rates)), file=sys.stderr)
         sys.exit(1)
 
     for link in data['links']:
@@ -292,7 +290,7 @@ def assign_flow_rates_heuristic(data, tm, mipgap):
         try:
             paths = [p for p in nx.all_shortest_paths(G, source=src, target=dst)]
         except nx.exception.NetworkXNoPath:
-            print("No path found between %d and %d." % (src, dst))
+            print("Error: No path found between %d and %d." % (src, dst), file=sys.stderr)
             sys.exit(1)
         max_flow = 0
         path_capacities = []
@@ -526,14 +524,14 @@ def generate_link_loads(data, nodes, mipgap, total_traffic, target_mean_link_loa
     tm = generate_tm(len(nodes), total_traffic)
     objective = methods[flow_assign_method](data, tm, mipgap)
     if objective > 1:
-        print("Scaling down TM by %f to reach feasible routing." % objective)
+        print("Scaling down TM by %f to reach feasible routing." % objective, file=sys.stderr)
         scale_down_tm(data, objective)
     mean_link_load = compute_mean_link_load(data)
     factor =  mean_link_load / target_mean_link_load
     if factor < 1:
-        print("Mean link load is at %f." % mean_link_load)
+        print("Mean link load is at %f." % mean_link_load, file=sys.stderr)
     else:
-        print("Scaling down TM by %f to reach %f mean link load." % (factor, args.mean_link_load))
+        print("Scaling down TM by %f to reach %f mean link load." % (factor, args.mean_link_load), file=sys.stderr)
         scale_down_tm(data, factor)
 
 
@@ -602,7 +600,7 @@ if __name__ == "__main__":
         try:
             template = yaml.load(fh)
         except yaml.YAMLError as e:
-            print(e)
+            print(e, file=sys.stderr)
             sys.exit(1)
 
     data = {'nodes': [], 'links': [], 'attacks': [], 'vnfs': template['vnfs']}
