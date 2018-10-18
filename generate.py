@@ -605,6 +605,13 @@ if __name__ == "__main__":
 
     data = {'nodes': [], 'links': [], 'attacks': [], 'vnfs': template['vnfs']}
     nodes = generate_topology(data, template, args.max_node_class, args.max_link_capacity)
+    if args.nb_attackers > len(nodes):
+        print("Error: More attackers required than there are nodes (%d) in the network." % len(nodes), file=sys.stderr)
+        sys.exit(1)
+    if args.nb_targets > len(nodes):
+        print("Error: More targets required than there are nodes (%d) in the network." % len(nodes), file=sys.stderr)
+        sys.exit(1)
+
     generate_link_loads(data, nodes, args.mipgap, args.total_traffic, args.mean_link_load, args.method_flow_assign)
     generate_attacks(data, nodes, args.nb_attackers, args.nb_targets, args.mean_attack_load)
     round_link_loads(data)
